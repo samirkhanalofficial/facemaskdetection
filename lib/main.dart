@@ -1,7 +1,6 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:maskdetection/result_provider.dart';
-import 'package:provider/provider.dart';
+import 'package:maskdetection/resultscreen.dart';
 import 'package:tflite/tflite.dart';
 
 List<CameraDescription>? cameras;
@@ -22,10 +21,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.red,
       ),
       debugShowCheckedModeBanner: false,
-      home: ChangeNotifierProvider(
-        create: (context) => ResultProvider(),
-        child: const MyHomePage(),
-      ),
+      home: const MyHomePage(),
     );
   }
 }
@@ -40,7 +36,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int page = 0;
   CameraImage? cameraImage;
-  int y = 0;
+  int y = 1;
   CameraController? cameraController;
   String result = "";
   changecamera() {
@@ -51,7 +47,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   initCamera() {
-    cameraController = CameraController(cameras![y], ResolutionPreset.medium);
+    cameraController =
+        CameraController(cameras![y], ResolutionPreset.ultraHigh);
     cameraController!.initialize().then((value) {
       if (!mounted) return;
       setState(() {
@@ -82,8 +79,34 @@ class _MyHomePageState extends State<MyHomePage> {
           numResults: 2,
           threshold: 0.1,
           asynch: true);
-      debugPrint(recognitions.toString());
-      Provider.of<ResultProvider>(context, listen: false).change(recognitions!);
+
+      if (recognitions?.isNotEmpty == true) {
+        bool result = getResult(
+            label: recognitions![0]['label'],
+            confidence: recognitions[0]['confidence']);
+        Navigator.of(context).pushReplacement(MaterialPageRoute(
+          builder: (context) =>
+              ResultScreen(result: result, cameraController: cameraController!),
+        ));
+      }
+    }
+  }
+
+  bool getResult({required String label, required double confidence}) {
+    debugPrint(label + ": " + confidence.toString());
+
+    if (label.split(' ')[1] == "with_mask") {
+      if (confidence * 100 > 70) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      if (confidence * 100 > 70) {
+        return false;
+      } else {
+        return true;
+      }
     }
   }
 
@@ -169,38 +192,19 @@ class _MyHomePageState extends State<MyHomePage> {
                     width: MediaQuery.of(context).size.width,
                     child: !cameraController!.value.isInitialized
                         ? Container()
-                        : AspectRatio(
-                            aspectRatio: cameraController!.value.aspectRatio,
-                            child: CameraPreview(cameraController!),
+                        : Center(
+                            child: AspectRatio(
+                              aspectRatio: 3 / 4,
+                              child: CameraPreview(cameraController!),
+                            ),
                           ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 30,
-                  left: 30,
-                  right: 30,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Consumer<ResultProvider>(
-                        builder: (_, value, __) => Text(
-                          value.ismask ? value.withmask.replaceAll("_", " ") : value.withoutmask.replaceAll("_", " "),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 25),
-                        ),
-                      ),
-                    ),
                   ),
                 ),
               ],
             ),
             ListView(
               physics: const BouncingScrollPhysics(),
-              children:  [
+              children: [
                 Image.asset("assets/ic_launcher.png"),
                 const ListTile(
                   title: Text("Made by"),
@@ -216,11 +220,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 const ListTile(
                   title: Text("Training Samples:"),
-                  subtitle: Text("with mask : 3850 \nwithout mask : 2998 "),
-                ),
-                const ListTile(
-                  title: Text("Accuracy:"),
-                  subtitle: Text("20%"),
+                  subtitle: Text("with mask : 5000 \nwithout mask : 5000 "),
                 ),
               ],
             )
